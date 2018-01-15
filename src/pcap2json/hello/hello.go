@@ -3,6 +3,7 @@ package main
 import (
     "bufio"
     "encoding/json"
+    "errors"
     "fmt"
     "io/ioutil"
     "os"
@@ -61,12 +62,12 @@ type Packet struct {
     Layers Layers
 }
 
-func str2pkt(s string) Packet {
+func str2pkt(s string) (Packet, error) {
     pkt := Packet{}
     if err := json.Unmarshal([]byte(s), &pkt); err != nil {
-        panic(err)
+        return Packet{}, errors.New("malformed JSON")
     }
-    return pkt;
+    return pkt, nil;
 }
 
 type TrafChunk struct {
@@ -119,7 +120,7 @@ func savehist(hist []TrafChunk, f string) {
 
 func read() {
     fmt.Println("Attempting to parse EK data from file.")
-    file, err := os.Open("/Users/johnhess/stream.ek")
+    file, err := os.Open("/Users/johnhess/Dropbox/hackamajig/netcaptures/stream.ek")
     if err != nil {
         panic(err)
     }
@@ -130,9 +131,14 @@ func read() {
     scanner := bufio.NewScanner(file)
     for scanner.Scan() {
         line := scanner.Text()
-        pkt := str2pkt(line)
-        if (Ip{}) != pkt.Layers.Ip || (Dns{}) != pkt.Layers.Dns {
-            pkts = append(pkts, pkt)
+        pkt, err := str2pkt(line)
+        // if we hit a malformed row, we just skip it later.
+        if err != nil {
+            fmt.Println("caught end of file or malformed json.")
+        } else {
+            if (Ip{}) != pkt.Layers.Ip || (Dns{}) != pkt.Layers.Dns {
+                pkts = append(pkts, pkt)
+            }
         }
     }
 
@@ -140,8 +146,15 @@ func read() {
         panic(err)
     }
 
-    hist := traffichist(pkts, 100)
-    savehist(hist, "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
+    hist := traffichist(pkts, 1000)
+    var histstart int
+    if len(hist) < 1920 {
+        histstart = 0
+    } else {
+        histstart = len(hist) - 1920
+    }
+    savehist(hist[histstart:], "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
+    fmt.Println("Done.")
 }
 
 func returntwo() int {
@@ -149,5 +162,8 @@ func returntwo() int {
 }
 
 func main() {
-    read()
+    // just run again if we eventually complete read()
+    for {
+        read()
+    }
 }
