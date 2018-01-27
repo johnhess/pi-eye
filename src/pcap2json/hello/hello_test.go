@@ -11,13 +11,6 @@ var pkts = []Packet{
     Packet{"1000000004001", Layers{}}, 
     Packet{"1000000009001", Layers{}}}
 
-func TestTwo(t *testing.T) {
-    two := returntwo()
-    if two != 2 {
-        t.Errorf("returned two but failing anyways")
-    }
-}
-
 func TestHist(t *testing.T) {
     hist := traffichist(pkts, 1000)
     if len(hist) != 10 {

@@ -5,9 +5,11 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "io"
     "io/ioutil"
     "os"
     "strconv"
+    "time"
 )
 
 type Ip struct {
@@ -62,9 +64,10 @@ type Packet struct {
     Layers Layers
 }
 
-func str2pkt(s string) (Packet, error) {
+func bytes2packet(b []byte) (Packet, error) {
     pkt := Packet{}
-    if err := json.Unmarshal([]byte(s), &pkt); err != nil {
+    if err := json.Unmarshal(b, &pkt); err != nil {
+        fmt.Println(string(b))
         return Packet{}, errors.New("malformed JSON")
     }
     return pkt, nil;
@@ -76,12 +79,15 @@ type TrafChunk struct {
 }
 
 func traffichist(pkts []Packet, delta int) []TrafChunk {
-    // Create and fill chunks as long as there are still packets in the array.
-    pkti := 0
     var chunks []TrafChunk
+    if len(pkts) == 0 {
+        return chunks
+    }
+    pkti := 0
     // First chunk starts at the time of the first packet
     offset, err := strconv.Atoi(pkts[0].Timestamp)
     if err != nil {
+        fmt.Println(pkts)
         panic(err)
     }
     for {
@@ -118,52 +124,65 @@ func savehist(hist []TrafChunk, f string) {
     }
 }
 
-func read() {
-    fmt.Println("Attempting to parse EK data from file.")
-    file, err := os.Open("/Users/johnhess/Dropbox/hackamajig/netcaptures/stream.ek")
-    if err != nil {
-        panic(err)
-    }
-    defer file.Close()
-
-    var pkts []Packet
-
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        line := scanner.Text()
-        pkt, err := str2pkt(line)
-        // if we hit a malformed row, we just skip it later.
-        if err != nil {
-            fmt.Println("caught end of file or malformed json.")
-        } else {
-            if (Ip{}) != pkt.Layers.Ip || (Dns{}) != pkt.Layers.Dns {
-                pkts = append(pkts, pkt)
+/*
+ *  Streams interesting packets from stdin to a channel.
+ *
+ *  Returns immediately.
+ */
+func si2pkts(c chan <- Packet) {
+    go func() {
+        stdin := bufio.NewReader(os.Stdin)
+        for {
+            // Grab lines from the file
+            line, err := stdin.ReadString('\n')
+            if err != nil {
+                switch err {
+                case io.EOF:
+                    time.Sleep(1 * time.Millisecond)
+                default:
+                    panic(err)
+                }
+            } else {
+                // Make a packet
+                if pkt, err := bytes2packet([]byte(line)); err != nil {
+                    panic(err)
+                } else {
+                    c <- pkt
+                }
             }
         }
-    }
-
-    if err := scanner.Err(); err != nil {
-        panic(err)
-    }
-
-    hist := traffichist(pkts, 1000)
-    var histstart int
-    if len(hist) < 1920 {
-        histstart = 0
-    } else {
-        histstart = len(hist) - 1920
-    }
-    savehist(hist[histstart:], "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
-    fmt.Println("Done.")
-}
-
-func returntwo() int {
-    return 2
+    }()
 }
 
 func main() {
-    // just run again if we eventually complete read()
+    stream := make(chan Packet, 1000)
+
+    si2pkts(stream)
+
+    var pkts []Packet
+    lastExportLen := 0
     for {
-        read()
+        select {
+        case pkt := <-stream:
+            // Toss uninteresting packets
+            if (Ip{}) != pkt.Layers.Ip || (Dns{}) != pkt.Layers.Dns {
+                pkts = append(pkts, pkt)
+            }
+        default:
+            // No packets?  Export.  Could probably be in a goroutine.
+            if len(pkts) > lastExportLen {
+                hist := traffichist(pkts, 100)
+                var histstart int
+                if len(hist) < 1920 {
+                    histstart = 0
+                } else {
+                    histstart = len(hist) - 1920
+                }
+                savehist(hist[histstart:], "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
+                lastExportLen = len(pkts)
+                fmt.Println(fmt.Sprintf("Exported %d packets.", lastExportLen))
+            }
+            time.Sleep(1 * time.Millisecond)
+        }
     }
 }
