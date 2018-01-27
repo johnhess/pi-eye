@@ -78,6 +78,11 @@ type TrafChunk struct {
     Count int
 }
 
+type DeviceHist struct {
+    Device string
+    Traffic []TrafChunk
+}
+
 func traffichist(pkts []Packet, delta int) []TrafChunk {
     var chunks []TrafChunk
     if len(pkts) == 0 {
@@ -110,6 +115,53 @@ func traffichist(pkts []Packet, delta int) []TrafChunk {
         if pkti >= len(pkts) {break}
     }
     return chunks
+}
+
+func mdhist(pkts []Packet, delta int) []DeviceHist {
+    // ip_addr: position in dh
+    devices := make(map[string]int)
+    dh := make([]DeviceHist, 0)
+    
+    if len(pkts) == 0 {
+        return dh
+    }
+    pkti := 0
+    // First chunk starts at the time of the first packet
+    offset, err := strconv.Atoi(pkts[0].Timestamp)
+    if err != nil {
+        fmt.Println(pkts)
+        panic(err)
+    }
+    for {
+        for index, device := range dh {
+            chunk := TrafChunk{offset, 0}
+            dh[index].Traffic = append(device.Traffic, chunk)
+        }
+        for {
+            // end of pkts
+            if pkti >= len(pkts) {break}
+            tm, err := strconv.Atoi(pkts[pkti].Timestamp)
+            if err != nil {
+                panic(err)
+            }
+            device := pkts[pkti].Layers.Ip.Ip_ip_src
+            if tm < offset + delta {
+                if _, ok := devices[device]; !ok {
+                    // device not yet in map or array
+                    newdh := DeviceHist{device, []TrafChunk{TrafChunk{offset, 0}}}
+                    dh = append(dh, newdh)
+                    devices[device] = len(dh) - 1
+                }
+                dtraf := dh[devices[device]].Traffic
+                dtraf[len(dtraf) - 1].Count++
+                pkti++
+            } else {break} // end of chunk
+        }
+        offset += delta
+        // finally stop if we're out of packets
+        if pkti >= len(pkts) {break}
+    }
+    return dh
 }
 
 func savehist(hist []TrafChunk, f string) {
