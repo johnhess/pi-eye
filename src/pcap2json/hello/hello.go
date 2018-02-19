@@ -156,7 +156,8 @@ func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta
         // ip_addr: position in dh
         devices := make(map[string]int)
         dh := make([]ConversationHist, 0)
-        offset := -1;
+        offset := -1
+        lastsent := -1
         pkts := 0
 
         for {
@@ -198,10 +199,10 @@ func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta
                 }
                 dtraf := dh[devices[convo]].Traffic
                 dtraf[len(dtraf) - 1].Count += packet.size()
-            default:
-                hstream <- dh
-                // Hackish.  Makes tests pass, code fast.  Race condition.
-                time.Sleep(1 * time.Millisecond)
+                if offset > lastsent {
+                    hstream <- dh
+                    lastsent = offset
+                }
             }
         }
     }()
