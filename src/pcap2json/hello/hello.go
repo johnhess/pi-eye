@@ -4,13 +4,18 @@ import (
     "bufio"
     "encoding/json"
     "errors"
+    "flag"
     "fmt"
     "io"
     "io/ioutil"
+    "log"
     "os"
+    "runtime/pprof"
     "strconv"
     "time"
 )
+
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 
 type Ip struct {
     Ip_ip_dst_host string
@@ -42,12 +47,16 @@ func (dns Dns) String() string {
 
 type Tcp struct {
     Tcp_analysis_tcp_analysis_bytes_in_flight string
+    Tcp_tcp_dstport string
+    Tcp_tcp_srcport string
 }
 
 func (tcp Tcp) String() string {
     if tcp != (Tcp{}) {
         return fmt.Sprintf(
-            "TCP Size: %s", 
+            "TCP (%s to %s) Size: %s", 
+            tcp.Tcp_tcp_srcport,
+            tcp.Tcp_tcp_dstport,
             tcp.Tcp_analysis_tcp_analysis_bytes_in_flight)
     }
     return ""
@@ -57,11 +66,27 @@ type Layers struct {
     Dns Dns
     Ip Ip
     Tcp Tcp
+    // TODO capture wlan, too when at wireshark version 2.5+ (so field is not repeated)
 }
 
 type Packet struct {
     Timestamp string
     Layers Layers
+}
+
+/*
+ * The resolved host name of the requesting party (src/dst).
+ *
+ * By convention, if communicating over TCP to a port < 49151, the packet src
+ * is the requester, otherwise, the dest.
+ */
+func (p Packet) fromto() (string, string) {
+    return p.Layers.Ip.Ip_ip_src_host, p.Layers.Ip.Ip_ip_dst_host
+}
+
+func (p Packet) size() int {
+    // TODO detect size of packet... radio layer?
+    return 1
 }
 
 func bytes2packet(b []byte) (Packet, error) {
@@ -78,49 +103,17 @@ type TrafChunk struct {
     Count int
 }
 
-type DeviceHist struct {
-    Device string
+type ConversationHist struct {
+    Source string
+    Destination string
     Traffic []TrafChunk
 }
 
-func traffichist(pkts []Packet, delta int) []TrafChunk {
-    var chunks []TrafChunk
-    if len(pkts) == 0 {
-        return chunks
-    }
-    pkti := 0
-    // First chunk starts at the time of the first packet
-    offset, err := strconv.Atoi(pkts[0].Timestamp)
-    if err != nil {
-        fmt.Println(pkts)
-        panic(err)
-    }
-    for {
-        chunk := TrafChunk{offset, 0}
-        for {
-            // end of pkts
-            if pkti >= len(pkts) {break}
-            tm, err := strconv.Atoi(pkts[pkti].Timestamp)
-            if err != nil {
-                panic(err)
-            }
-            if tm < offset + delta {
-                chunk.Count++
-                pkti++
-            } else {break} // end of chunk
-        }
-        chunks = append(chunks, chunk)
-        offset += delta
-        // finally stop if we're out of packets
-        if pkti >= len(pkts) {break}
-    }
-    return chunks
-}
-
-func mdhist(pkts []Packet, delta int) []DeviceHist {
+// TODO: stream new results to here, return only the tail window.
+func mdhist(pkts []Packet, delta int) []ConversationHist {
     // ip_addr: position in dh
     devices := make(map[string]int)
-    dh := make([]DeviceHist, 0)
+    dh := make([]ConversationHist, 0)
     
     if len(pkts) == 0 {
         return dh
@@ -133,9 +126,10 @@ func mdhist(pkts []Packet, delta int) []DeviceHist {
         panic(err)
     }
     for {
-        for index, device := range dh {
+        // Initialize Chunks for all conversations
+        for index, convo := range dh {
             chunk := TrafChunk{offset, 0}
-            dh[index].Traffic = append(device.Traffic, chunk)
+            dh[index].Traffic = append(convo.Traffic, chunk)
         }
         for {
             // end of pkts
@@ -144,16 +138,18 @@ func mdhist(pkts []Packet, delta int) []DeviceHist {
             if err != nil {
                 panic(err)
             }
-            device := pkts[pkti].Layers.Ip.Ip_ip_src
+            src, dest := pkts[pkti].fromto()
+            convo := src + ":" + dest
             if tm < offset + delta {
-                if _, ok := devices[device]; !ok {
+                if _, ok := devices[convo]; !ok {
                     // device not yet in map or array
-                    newdh := DeviceHist{device, []TrafChunk{TrafChunk{offset, 0}}}
+                    newdh := ConversationHist{src, dest, []TrafChunk{TrafChunk{offset, 0}}}
                     dh = append(dh, newdh)
-                    devices[device] = len(dh) - 1
+                    devices[convo] = len(dh) - 1
                 }
-                dtraf := dh[devices[device]].Traffic
-                dtraf[len(dtraf) - 1].Count++
+                dtraf := dh[devices[convo]].Traffic
+                size := pkts[pkti].size()
+                dtraf[len(dtraf) - 1].Count += size
                 pkti++
             } else {break} // end of chunk
         }
@@ -164,7 +160,7 @@ func mdhist(pkts []Packet, delta int) []DeviceHist {
     return dh
 }
 
-func savehist(hist []TrafChunk, f string) {
+func savehist(hist interface{}, f string) {
     out, err := json.Marshal(hist)
     if err != nil {
         panic(err)
@@ -198,7 +194,7 @@ func si2pkts(c chan <- Packet) {
                 // Make a packet
                 if pkt, err := bytes2packet([]byte(line)); err != nil {
                     panic(err)
-                } else {
+                } else if (Ip{}) != pkt.Layers.Ip || (Dns{}) != pkt.Layers.Dns {
                     c <- pkt
                 }
             }
@@ -206,35 +202,82 @@ func si2pkts(c chan <- Packet) {
     }()
 }
 
+func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist) {
+    go func() {
+        // ip_addr: position in dh
+        devices := make(map[string]int)
+        dh := make([]ConversationHist, 0)
+        offset := -1;
+        delta := 1000  // Milliseconds
+        pkts := 0
+
+        for {
+            select {
+            case packet := <- pstream:
+                pkts += 1
+                fmt.Println("processing packet", pkts)
+                tm, err := strconv.Atoi(packet.Timestamp)
+                if err != nil {
+                    panic(err)
+                }
+                if offset == -1 {
+                    offset = tm
+                    for index, convo := range dh {
+                        chunk := TrafChunk{offset, 0}
+                        dh[index].Traffic = append(convo.Traffic, chunk)
+                    }
+                } else if tm >= offset + delta {
+                    for {
+                        offset = offset + delta
+                        for index, convo := range dh {
+                            chunk := TrafChunk{offset, 0}
+                            dh[index].Traffic = append(convo.Traffic, chunk)
+                        }
+                        if tm <= offset + delta {break}
+                    }
+                }
+                src, dest := packet.fromto()
+                convo := src + ":" + dest
+                if _, ok := devices[convo]; !ok {
+                    // device not yet in map or array
+                    newdh := ConversationHist{src, dest, []TrafChunk{TrafChunk{offset, 0}}}
+                    dh = append(dh, newdh)
+                    devices[convo] = len(dh) - 1
+                }
+                dtraf := dh[devices[convo]].Traffic
+                dtraf[len(dtraf) - 1].Count += packet.size()
+            default:
+                hstream <- dh
+                time.Sleep(10 * time.Millisecond)
+            }
+        }
+    }()
+}
+
 func main() {
-    stream := make(chan Packet, 1000)
+    flag.Parse()
+    if *cpuprofile != "" {
+        f, err := os.Create(*cpuprofile)
+        if err != nil {
+            log.Fatal("could not create CPU profile: ", err)
+        }
+        if err := pprof.StartCPUProfile(f); err != nil {
+            log.Fatal("could not start CPU profile: ", err)
+        }
+        defer pprof.StopCPUProfile()
+    }
 
-    si2pkts(stream)
+    pstream := make(chan Packet, 1000)
+    hstream := make(chan []ConversationHist)
 
-    var pkts []Packet
-    lastExportLen := 0
+    si2pkts(pstream)
+    pkts2hist(pstream, hstream)
+
+    // could be part of pkts2hist, and just write to disk
     for {
         select {
-        case pkt := <-stream:
-            // Toss uninteresting packets
-            if (Ip{}) != pkt.Layers.Ip || (Dns{}) != pkt.Layers.Dns {
-                pkts = append(pkts, pkt)
-            }
-        default:
-            // No packets?  Export.  Could probably be in a goroutine.
-            if len(pkts) > lastExportLen {
-                hist := traffichist(pkts, 100)
-                var histstart int
-                if len(hist) < 1920 {
-                    histstart = 0
-                } else {
-                    histstart = len(hist) - 1920
-                }
-                savehist(hist[histstart:], "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
-                lastExportLen = len(pkts)
-                fmt.Println(fmt.Sprintf("Exported %d packets.", lastExportLen))
-            }
-            time.Sleep(1 * time.Millisecond)
+        case hist := <- hstream:
+            savehist(hist, "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
         }
     }
 }
