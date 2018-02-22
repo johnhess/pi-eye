@@ -1,0 +1,57 @@
+body {
+  margin: 0;
+}
+
+.grid-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+#connections {
+  grid-column: 2/3;
+  grid-row: 1;
+}
+
+#beziers {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke-width: .75px;
+  stroke: rgba(0,0,0,.1);
+}
+
+#local {
+  grid-column: 1/2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+#external {
+  grid-column: 3/4;
+  grid-row: 1;
+}
+
+.sparkline {
+  fill: none;
+  stroke: rgba(0,0,0,.5);
+  stroke-width: .75px;
+}
+
+.device-label {
+  font-family: Helvetica;
+  font-weight: 100;
+  font-size: 10px;
+  fill: rgba(0, 0, 0, .75);
+}
+
+.host-favicon-rect {
+  fill: rgb(255, 255, 255);
+}
+
+.host-favicon {
+  height: 16px;
+  width: 16px;
+  background-color: rgba(0, 0, 0, .1);
+}

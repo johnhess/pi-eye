@@ -263,7 +263,7 @@ func main() {
                 newts = hist[0].Traffic[len(hist[0].Traffic) - 1].Timestamp
             }
             if newts != lastts {
-                savehist(hist, "/Users/johnhess/Dropbox/hackamajig/networkviz/hist.json")
+                savehist(hist, os.Getenv("GOPATH") + "/visualization/hist.json")
                 lastts = newts
             }
         }
