@@ -12,6 +12,7 @@ import (
     "os"
     "runtime/pprof"
     "strconv"
+    "strings"
     "time"
 )
 
@@ -81,7 +82,9 @@ type Packet struct {
  * is the requester, otherwise, the dest.
  */
 func (p Packet) fromto() (string, string) {
-    return p.Layers.Ip.Ip_ip_src_host, p.Layers.Ip.Ip_ip_dst_host
+    simplesrc := simpleHost(p.Layers.Ip.Ip_ip_src_host)
+    simpledst := simpleHost(p.Layers.Ip.Ip_ip_dst_host)
+    return simplesrc, simpledst
 }
 
 func (p Packet) size() int {
@@ -118,6 +121,28 @@ func savehist(hist interface{}, f string) {
     err = ioutil.WriteFile(f, []byte(string(out)), 0644)
     if err != nil {
         panic(err)
+    }
+}
+
+func isIPv4(h string) bool {
+    hostparts := strings.Split(h, ".")
+    _, err := strconv.Atoi(hostparts[len(hostparts) - 1])
+    return err == nil
+}
+
+/**
+ *  Hackish -- truncate subdomains
+ */
+func simpleHost(h string) string {
+    if isIPv4(h) {
+        return h
+    } else {
+        hostparts := strings.Split(h, ".")
+        start := 0
+        if len(hostparts) > 2 {
+            start = len(hostparts) - 2
+        }
+        return strings.Join(hostparts[start:], ".")
     }
 }
 
@@ -200,6 +225,7 @@ func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta
                 dtraf := dh[devices[convo]].Traffic
                 dtraf[len(dtraf) - 1].Count += packet.size()
                 if offset > lastsent {
+                    fmt.Println("exporting histogram")
                     hstream <- dh
                     lastsent = offset
                 }
