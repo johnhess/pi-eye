@@ -1,2 +1,2 @@
-export GOPATH=~/Dropbox/hackamajig/pcap2json/
+export GOPATH=`dirname $(realpath setup_env.sh)`
 export PATH=$PATH:$GOPATH/bin
