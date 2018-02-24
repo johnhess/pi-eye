@@ -157,14 +157,16 @@ let beziers = (hists) => {
       console.log('unclear convo', convo.Source, convo.Destination);
       return
     }
+    // assume local and external have same vertical offset
+    const containerOffset = $('#local').offset().top;
     const leftDiv = $(`[data-host='${leftHost}']`);
     const rightDiv = $(`[data-host='${rightHost}']`);
 
     if (leftDiv.offset() && rightDiv.offset()) {
         const startX = leftDiv.offset().left + leftDiv.width();
-        const startY = leftDiv.offset().top + HEIGHT / 2;
+        const startY = leftDiv.offset().top + HEIGHT / 2 - containerOffset;
         const endX = rightDiv.offset().left;
-        const endY = rightDiv.offset().top + HEIGHT / 2;
+        const endY = rightDiv.offset().top + HEIGHT / 2 - containerOffset;
     
         const bezWidth = $('#beziers').width();
         let bez = (point) => {
