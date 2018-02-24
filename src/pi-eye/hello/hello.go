@@ -50,6 +50,7 @@ type Tcp struct {
     Tcp_analysis_tcp_analysis_bytes_in_flight string
     Tcp_tcp_dstport string
     Tcp_tcp_srcport string
+    Tcp_tcp_len string
 }
 
 func (tcp Tcp) String() string {
@@ -89,7 +90,11 @@ func (p Packet) fromto() (string, string) {
 
 func (p Packet) size() int {
     // TODO detect size of packet... radio layer?
-    return 1
+    size, err := strconv.Atoi(p.Layers.Tcp.Tcp_tcp_len)
+    if err != nil {
+        return 0
+    }
+    return size
 }
 
 func bytes2packet(b []byte) (Packet, error) {
@@ -203,6 +208,7 @@ func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta
                 } else if tm >= offset + delta {
                     for {
                         offset = offset + delta
+                        hstream <- dh
                         for index, convo := range dh {
                             chunk := TrafChunk{offset, 0}
                             dh[index].Traffic = append(convo.Traffic, chunk)
@@ -247,11 +253,14 @@ func main() {
         defer pprof.StopCPUProfile()
     }
 
+    resms := 1000
+    hist_windows := 250
+
     pstream := make(chan Packet, 1000)
     hstream := make(chan []ConversationHist)
 
     si2pkts(pstream)
-    pkts2hist(pstream, hstream, 1000, 100)
+    pkts2hist(pstream, hstream, resms, hist_windows)
 
     // could be part of pkts2hist, and just write to disk
     for {

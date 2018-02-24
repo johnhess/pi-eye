@@ -13,19 +13,19 @@ var pkts = []Packet{
     Packet{"1000000000000", Layers{
             Dns{},
             Ip{"dest1", "dest1", "src1", "src1"},
-            Tcp{"100", "443", "5555"}}}, 
+            Tcp{"100", "443", "5555", "10"}}}, 
     Packet{"1000000004001", Layers{
             Dns{},
             Ip{"dest1", "dest1", "src2", "src2"},
-            Tcp{"100", "443", "5555"}}}, 
+            Tcp{"100", "443", "5555", "10"}}}, 
     Packet{"1000000004001", Layers{
             Dns{},
             Ip{"dest1", "dest1", "src1", "src1"},
-            Tcp{"100", "443", "5555"}}}, 
+            Tcp{"100", "443", "5555", "10"}}}, 
     Packet{"1000000009001", Layers{
             Dns{},
             Ip{"dest2", "dest2", "src2", "src2"},
-            Tcp{"100", "443", "5555"}}},
+            Tcp{"100", "443", "5555", "10"}}},
 }
 
 
@@ -41,6 +41,11 @@ func TestStreamHistGen(t *testing.T) {
         t.Errorf(fmt.Sprintf("Wrong number of conversations: %d", len(hist)))
     }
     pstream <- pkts[1]
+    // Smooth exports mean that each window results in a new hist
+    hist = <- hstream
+    hist = <- hstream
+    hist = <- hstream
+    hist = <- hstream
     hist = <- hstream
     if len(hist) != 2 {
         t.Errorf(fmt.Sprintf("Wrong number of conversations: %d", len(hist)))
@@ -48,6 +53,9 @@ func TestStreamHistGen(t *testing.T) {
     if len(hist[0].Traffic) != 5 {
         fmt.Println(hist)
         t.Error(fmt.Sprintf("Incorrect traffic length: %d", len(hist[0].Traffic)))
+    }
+    if hist[0].Traffic[0].Count != 10 {
+        t.Error(fmt.Sprintf("Incorrect traffic volume: %d", hist[0].Traffic[0].Count))        
     }
 }
 
@@ -60,6 +68,10 @@ func TestHistTruncation(t *testing.T) {
     pstream <- pkts[0]
     pstream <- pkts[1]
     hist := <- hstream
+    hist = <- hstream
+    hist = <- hstream
+    hist = <- hstream
+    hist = <- hstream
     if len(hist[0].Traffic) != 3 {
         fmt.Println(hist)
         t.Error(fmt.Sprintf("Incorrect traffic length: %d", len(hist[0].Traffic)))

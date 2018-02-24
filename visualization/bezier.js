@@ -118,7 +118,8 @@ let addHist = (name, traffic, maxTraf, minTime, elemSelector, faviconUrl) => {
 let sparks = (hostTraffic) => {
   // Find global traffic max
   let maxTraf = 0;
-  let minTime = hostTraffic.internal.values().next().value[0].Timestamp;
+  const firstTrafficChunk = hostTraffic.internal.values().next().value;
+  let minTime = firstTrafficChunk ? firstTrafficChunk[0].Timestamp : 0;
   hostTraffic.internal.forEach((traffic) => {
     traffic.forEach((chunk) => {
       maxTraf = Math.max(maxTraf, chunk.Count);

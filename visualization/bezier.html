@@ -7,10 +7,15 @@
     <script src="/bezier.js"></script>
     <script>
       let draw = () => {
-        $.get('/hist.json', (hists) => {
-          renderHists(hists);
-          setTimeout(draw, 100000);
-        })
+        $.get(
+          '/hist.json', 
+          (hists) => {
+            renderHists(hists);
+            setTimeout(draw, 100);
+          }
+        ).fail(
+          // that's okay.  json probably re-written during read.
+          () => setTimeout(draw, 100));
       }
 
       window.onload = draw;
