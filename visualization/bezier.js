@@ -158,6 +158,16 @@ let beziers = (hists) => {
       console.log('unclear convo', convo.Source, convo.Destination);
       return
     }
+
+    // Using made up constants, gradually fade the traffic out.
+    let weight = 1;
+    const recentTraffic = convo.Traffic.slice(convo.Traffic.length - 10)
+      .reduce((sum, chunk) => {
+        weight = weight * 2;
+        return sum + chunk.Count * weight;
+      }, 0);
+    const trafficOpacity = Math.min(Math.log(recentTraffic + 1)/60, 1);
+
     // assume local and external have same vertical offset
     const containerOffset = $('#local').offset().top;
     const leftDiv = $(`[data-host='${leftHost}']`);
@@ -178,7 +188,8 @@ let beziers = (hists) => {
         const path = d3.select('#beziers')
           .append('path')
           .datum([{x: 0, y: startY}, {x: bezWidth, y: endY}])
-          .attr('d', bez);
+          .attr('d', bez)
+          .attr('stroke', `rgba(0, 0, 0, ${trafficOpacity})`)
     }
   })
 
