@@ -1,4 +1,7 @@
 'use strict'
+/**
+Utilities to render the bezier connection histogram.
+*/
 
 const HEIGHT = 16;
 
@@ -7,19 +10,11 @@ let isInternal = (host) => {
   return (host.indexOf("192") == 0 || host.indexOf("172") == 0 || host.indexOf('.local') != -1);
 };
 
-let draw = () => {
-  $.get(
-    '/hist.json', 
-    (hists) => {
-      const hostTraffic = getHostsWithTraffic(hists);
-      sparks(hostTraffic);
-      beziers(hists);
-    }
-  )
-  setTimeout(draw, 1000);
+let renderHists = (hists) => {
+  const hostTraffic = getHostsWithTraffic(hists);
+  sparks(hostTraffic);
+  beziers(hists);
 }
-
-window.onload = draw;
 
 let pushOrStart = (key, element, map) => {
   if (!map.has(key)) {
