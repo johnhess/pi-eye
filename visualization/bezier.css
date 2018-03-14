@@ -5,6 +5,7 @@ body {
 .grid-wrapper {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
+  min-height: 100%;
 }
 
 #connections {
@@ -16,7 +17,13 @@ body {
   width: 100%;
   height: 100%;
   fill: none;
-  stroke-width: 16px;
+  stroke-width: 2px;
+}
+
+.bezier-endpoint {
+  fill: #FFF;
+  stroke: #BBB;
+  stroke-width: 2px;
 }
 
 #local {
@@ -30,12 +37,15 @@ body {
 #external {
   grid-column: 3/4;
   grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
 }
 
 .sparkline {
   fill: none;
-  stroke: rgba(0,0,0,.5);
-  stroke-width: .75px;
+  stroke: #BBB;
+  stroke-width: 2px;
 }
 
 .device-label {

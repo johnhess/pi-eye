@@ -3,11 +3,13 @@
 Utilities to render the bezier connection histogram.
 */
 
-const HEIGHT = 16;
+const HEIGHT = 42;
+const RADIUS = 5;
+const RADIUS_STROKE = RADIUS + 1;
 
 // TODO: Better detection, possibly at backend.
 let isInternal = (host) => {
-  return (host.indexOf("192") == 0 || host.indexOf("172") == 0 || host.indexOf('.local') != -1);
+  return (host.indexOf("192") == 0 || host.indexOf("224") == 0 || host.indexOf("172") == 0 || host.indexOf('.local') != -1);
 };
 
 let renderHists = (hists) => {
@@ -47,7 +49,6 @@ let sumConversations = (hosts) => {
       summedHosts.set(host, summedTraffic);
     }
   });
-  console.log('finished summing conversations');
   return summedHosts;
 };
 
@@ -64,7 +65,7 @@ let getHostsWithTraffic = (hists) => {
       pushOrStart(convo.Source, convo.Traffic, externalHosts)
       pushOrStart(convo.Destination, convo.Traffic, internalHosts)
     } else {
-      console.log('unclear convo', convo.Source, convo.Destination)
+      // unclear conversation. don't plot.
     }
   });
 
@@ -78,9 +79,9 @@ let addHist = (name, traffic, maxTraf, minTime, elemSelector, faviconUrl) => {
   const jElem = $(elemSelector);
   const labelElem = $(elemSelector + '-labels');
   const width = jElem.width();
-  const height = HEIGHT;
   const x = d3.scale.linear().range([0, width]);
-  const y = d3.scale.linear().range([height, 0]);
+  const y = d3.scale.linear().range([HEIGHT / 2, 0]);
+  const faviconOffset = HEIGHT / 2 + 2;
   const line = d3.svg.line()
    .interpolate("basis")
    .x((d) => x(d.Timestamp))
@@ -93,7 +94,8 @@ let addHist = (name, traffic, maxTraf, minTime, elemSelector, faviconUrl) => {
     .append('svg')
   let svg = elem
     .attr('width', width)
-    .attr('height', height)
+    .attr('height', HEIGHT)
+    .attr('data-host', name)
     .append('g');
   svg.append('path')
     .datum(traffic)
@@ -101,15 +103,16 @@ let addHist = (name, traffic, maxTraf, minTime, elemSelector, faviconUrl) => {
     .attr('d', line);
   svg.append('text')
     .attr('x', 18)
-    .attr('y', height - 5)
+    .attr('y', faviconOffset + 12)
     .attr('class', 'device-label')
-    .attr('data-host', name)
     .html(name);
   svg.append('rect')
+    .attr('y', faviconOffset)
     .attr('height', 16)
     .attr('width', 16)
     .attr('class', 'host-favicon-rect')
   svg.append('image')
+    .attr('y', faviconOffset)
     .attr('class', 'host-favicon')
     // Google runs a public favicon pulling service
     .attr('href', faviconUrl || `https:\/\/www.google.com/s2/favicons?domain=${name}`);
@@ -155,18 +158,23 @@ let beziers = (hists) => {
       leftHost = convo.Destination;
       rightHost = convo.Source;
     } else {
-      console.log('unclear convo', convo.Source, convo.Destination);
       return
     }
 
     // Using made up constants, gradually fade the traffic out.
     let weight = 1;
+    const minOpacity = .05;
     const recentTraffic = convo.Traffic.slice(convo.Traffic.length - 10)
       .reduce((sum, chunk) => {
         weight = weight * 2;
         return sum + chunk.Count * weight;
       }, 0);
-    const trafficOpacity = Math.min(Math.log(recentTraffic + 1)/60, 1);
+    const logAdjustedTraffic = Math.log(recentTraffic + 1)/60;
+    const blue = logAdjustedTraffic ? 
+      Math.min(255, parseInt(recentTraffic * 1)) : 0;
+    const stroke = logAdjustedTraffic ? 
+      `rgba(0, 0, ${blue}, .5)` : 
+      '#BBB';
 
     // assume local and external have same vertical offset
     const containerOffset = $('#local').offset().top;
@@ -178,19 +186,30 @@ let beziers = (hists) => {
         const startY = leftDiv.offset().top + HEIGHT / 2 - containerOffset;
         const endX = rightDiv.offset().left;
         const endY = rightDiv.offset().top + HEIGHT / 2 - containerOffset;
-    
         const bezWidth = $('#beziers').width();
+        const fullWidth = bezWidth;
+        const halfWidth = bezWidth / 2;
         let bez = (point) => {
-          const fullWidth = bezWidth;
-          const halfWidth = bezWidth / 2;
-          return `M 0, ${point[0].y} C ${halfWidth}, ${point[0].y}, ${halfWidth}, ${point[1].y}, ${fullWidth}, ${point[1].y}`;
+          return `M ${RADIUS}, ${point[0].y} C ${halfWidth}, ${point[0].y}, ${halfWidth}, ${point[1].y}, ${fullWidth - RADIUS}, ${point[1].y}`;
         };
         const path = d3.select('#beziers')
           .append('path')
           .datum([{x: 0, y: startY}, {x: bezWidth, y: endY}])
           .attr('d', bez)
-          .attr('stroke', `rgba(0, 0, 0, ${trafficOpacity})`)
-    }
+          .attr('stroke', stroke)
+        const start = d3.select('#beziers')
+          .append('circle')
+          .attr('class', 'bezier-endpoint')
+          .attr('cx', RADIUS_STROKE)
+          .attr('cy', startY)
+          .attr('r', RADIUS)
+        const end = d3.select('#beziers')
+          .append('circle')
+          .attr('class', 'bezier-endpoint')
+          .attr('cx', fullWidth - RADIUS_STROKE)
+          .attr('cy', endY)
+          .attr('r', RADIUS)
+      }
   })
 
 }
