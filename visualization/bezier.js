@@ -171,7 +171,7 @@ let beziers = (hists) => {
       }, 0);
     const logAdjustedTraffic = Math.log(recentTraffic + 1)/60;
     const blue = logAdjustedTraffic ? 
-      Math.min(255, parseInt(recentTraffic * 1)) : 0;
+      Math.min(200, parseInt(recentTraffic * 1)) : 0;
     const stroke = logAdjustedTraffic ? 
       `rgba(0, 0, ${blue}, .5)` : 
       '#BBB';

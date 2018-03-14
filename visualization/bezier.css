@@ -50,8 +50,8 @@ body {
 
 .device-label {
   font-family: Helvetica;
-  font-weight: 100;
-  font-size: 10px;
+  font-weight: 500;
+  font-size: 12px;
   fill: rgba(0, 0, 0, .75);
 }
 
