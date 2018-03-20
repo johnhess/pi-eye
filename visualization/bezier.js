@@ -4,7 +4,7 @@ Utilities to render the bezier connection histogram.
 */
 
 const HEIGHT = 42;
-const RADIUS = 5;
+const RADIUS = 4;
 const RADIUS_STROKE = RADIUS + 1;
 
 // TODO: Better detection, possibly at backend.

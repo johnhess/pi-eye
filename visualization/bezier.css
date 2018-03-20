@@ -5,7 +5,6 @@ body {
 .grid-wrapper {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  min-height: 100%;
 }
 
 #connections {
@@ -32,6 +31,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
+  min-height: 100vh;
 }
 
 #external {
@@ -40,6 +40,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
+  min-height: 100vh;
 }
 
 .sparkline {
