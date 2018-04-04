@@ -107,7 +107,7 @@ func bytes2packet(b []byte) (Packet, error) {
 }
 
 type TrafChunk struct {
-    Timestamp int
+    Timestamp int64
     Count int
 }
 
@@ -181,13 +181,13 @@ func si2pkts(c chan <- Packet) {
     }()
 }
 
-func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta int, windows int) {
+func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta int64, windows int) {
     go func() {
         // ip_addr: position in dh
         devices := make(map[string]int)
         dh := make([]ConversationHist, 0)
-        offset := -1
-        lastsent := -1
+        var offset int64 = -1
+        var lastsent int64 = -1
         pkts := 0
 
         for {
@@ -195,7 +195,7 @@ func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta
             case packet := <- pstream:
                 pkts += 1
                 fmt.Println("processing packet", pkts)
-                tm, err := strconv.Atoi(packet.Timestamp)
+                tm, err := strconv.ParseInt(packet.Timestamp, 10, 64)
                 if err != nil {
                     panic(err)
                 }
@@ -253,7 +253,7 @@ func main() {
         defer pprof.StopCPUProfile()
     }
 
-    resms := 1000
+    var resms int64 = 1000
     hist_windows := 250
 
     pstream := make(chan Packet, 1000)
@@ -264,10 +264,10 @@ func main() {
 
     // could be part of pkts2hist, and just write to disk
     for {
-        lastts := 0
+        var lastts int64 = 0
         select {
         case hist := <- hstream:
-            newts := 0
+            var newts int64 = 0
             if len(hist) > 0 {
                 newts = hist[0].Traffic[len(hist[0].Traffic) - 1].Timestamp
             }
