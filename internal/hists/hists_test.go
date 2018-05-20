@@ -1,36 +1,37 @@
-package hello
+package hists
 
 import (
     "fmt"
     "testing"
+    "pi-eye/internal/tshark"
 )
 
-var pkts = []Packet{
+var pkts = []tshark.Packet{
     // Conversations
     // dest1 --> src1 (2 packets)
     // dest1 --> src2
     // dest2 --> src2
-    Packet{"1000000000000", Layers{
-            Dns{},
-            Ip{"dest1", "dest1", "src1", "src1"},
-            Tcp{"100", "443", "5555", "10"}}}, 
-    Packet{"1000000004001", Layers{
-            Dns{},
-            Ip{"dest1", "dest1", "src2", "src2"},
-            Tcp{"100", "443", "5555", "10"}}}, 
-    Packet{"1000000004001", Layers{
-            Dns{},
-            Ip{"dest1", "dest1", "src1", "src1"},
-            Tcp{"100", "443", "5555", "10"}}}, 
-    Packet{"1000000009001", Layers{
-            Dns{},
-            Ip{"dest2", "dest2", "src2", "src2"},
-            Tcp{"100", "443", "5555", "10"}}},
+    tshark.Packet{"1000000000000", tshark.Layers{
+            tshark.Dns{},
+            tshark.Ip{"dest1", "dest1", "src1", "src1"},
+            tshark.Tcp{"100", "443", "5555", "10"}}}, 
+    tshark.Packet{"1000000004001", tshark.Layers{
+            tshark.Dns{},
+            tshark.Ip{"dest1", "dest1", "src2", "src2"},
+            tshark.Tcp{"100", "443", "5555", "10"}}}, 
+    tshark.Packet{"1000000004001", tshark.Layers{
+            tshark.Dns{},
+            tshark.Ip{"dest1", "dest1", "src1", "src1"},
+            tshark.Tcp{"100", "443", "5555", "10"}}}, 
+    tshark.Packet{"1000000009001", tshark.Layers{
+            tshark.Dns{},
+            tshark.Ip{"dest2", "dest2", "src2", "src2"},
+            tshark.Tcp{"100", "443", "5555", "10"}}},
 }
 
 
 func TestStreamHistGen(t *testing.T) {
-    pstream := make(chan Packet, 1)
+    pstream := make(chan tshark.Packet, 1)
     hstream := make(chan []ConversationHist)
 
     pkts2hist(pstream, hstream, 1000, 100)
@@ -60,7 +61,7 @@ func TestStreamHistGen(t *testing.T) {
 }
 
 func TestHistTruncation(t *testing.T) {
-    pstream := make(chan Packet, 1000)
+    pstream := make(chan tshark.Packet, 1000)
     hstream := make(chan []ConversationHist)
 
     pkts2hist(pstream, hstream, 1000, 3)
@@ -76,18 +77,4 @@ func TestHistTruncation(t *testing.T) {
         fmt.Println(hist)
         t.Error(fmt.Sprintf("Incorrect traffic length: %d", len(hist[0].Traffic)))
     }
-}
-
-func TestHostLeavesLocalIPsUntouched(t *testing.T) {
-    clean := simpleHost("192.168.1.106")
-    if clean != "192.168.1.106" {t.Error(clean)}
-    clean = simpleHost("172.20.1.1")
-    if clean != "172.20.1.1" {t.Error(clean)}
-}
-
-func TestHostTruncatesSubdomains(t *testing.T) {
-    clean := simpleHost("this.com")
-    if clean != "this.com" {t.Error(clean)}
-    clean = simpleHost("sub.this.com")
-    if clean != "this.com" {t.Error(clean)}
 }

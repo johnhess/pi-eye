@@ -11,11 +11,11 @@
           '/hist.json', 
           (hists) => {
             renderHists(hists);
-            setTimeout(draw, 100);
+            setTimeout(draw, 10000);
           }
         ).fail(
           // that's okay.  json probably re-written during read.
-          () => setTimeout(draw, 100));
+          () => setTimeout(draw, 10000));
       }
 
       window.onload = draw;
