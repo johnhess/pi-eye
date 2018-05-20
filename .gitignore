@@ -2,3 +2,4 @@
 bin/*
 pkg/*
 web/visualization/hist.json
+web/visualization/convos.json
