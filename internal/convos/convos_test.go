@@ -7,7 +7,7 @@ import (
 )
 
 
-func TestConvos(t *testing.T) {
+func TestConvo(t *testing.T) {
     pstream := make(chan tshark.Packet, 1)
     cstream := make(chan map[string]Conversation)
 
@@ -18,9 +18,19 @@ func TestConvos(t *testing.T) {
     if len(convos) != 1 {
         t.Errorf(fmt.Sprintf("Wrong number of conversations: %d", len(convos)))
     }
-    pstream <- tshark.Dummy_packets[2]
+}
+
+func TestConvos(t *testing.T) {
+    pstream := make(chan tshark.Packet, 1)
+    cstream := make(chan map[string]Conversation)
+
+    pkts2convos(pstream, cstream)
+
+    pstream <- tshark.Dummy_packets[0]
+    convos := <- cstream
+    pstream <- tshark.Dummy_packets[1]
     convos = <- cstream
-    if len(convos) != 1 {
+    if len(convos) != 2 {
         t.Errorf(fmt.Sprintf("Wrong number of conversations: %d", len(convos)))
     }
 }
