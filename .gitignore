@@ -1,4 +1,4 @@
 *DS_Store
 bin/*
 pkg/*
-visualization/hist.json
+web/visualization/hist.json
