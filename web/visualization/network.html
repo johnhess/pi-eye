@@ -15,12 +15,11 @@
       stroke: #fff;
       stroke-width: 1.5px;
     }
-
     </style>
     <script>
       let startWatching = () => {
         draw();
-        setTimeout(startWatching, 20);
+        setTimeout(startWatching, 1000);
       }
 
       window.onload = startWatching;
@@ -35,4 +34,3 @@
     </svg>
   </body>
 </html>
-

@@ -57,15 +57,14 @@ var draw = () => {
       .data(nodes, (d) => d.id)
       // .exit().remove()
       .enter().append("circle")
-        .attr("r", 10)
+        .attr("r", 8)
         .attr("data-id", (d) => d.id)
         .attr("fill", function(d) { return color(d.group); })
         .call(d3.drag()
             .on("start", dragstarted)
             .on("drag", dragged)
-            .on("end", dragended));
-
-    node.append("title")
+            .on("end", dragended))
+        .append("title")
         .text(function(d) { return d.id; });
 
     simulation
