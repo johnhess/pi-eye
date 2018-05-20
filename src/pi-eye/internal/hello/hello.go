@@ -1,4 +1,4 @@
-package main
+package hello
 
 import (
     "bufio"
@@ -240,7 +240,7 @@ func pkts2hist(pstream <- chan Packet, hstream chan <- []ConversationHist, delta
     }()
 }
 
-func main() {
+func Main() {
     flag.Parse()
     if *cpuprofile != "" {
         f, err := os.Create(*cpuprofile)
@@ -272,7 +272,7 @@ func main() {
                 newts = hist[0].Traffic[len(hist[0].Traffic) - 1].Timestamp
             }
             if newts != lastts {
-                savehist(hist, os.Getenv("GOPATH") + "/visualization/hist.json")
+                savehist(hist, os.Getenv("GOPATH") + "/src/pi-eye/web/visualization/hist.json")
                 lastts = newts
             }
         }
