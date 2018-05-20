@@ -1,6 +1,7 @@
 package convos
 
 import (
+    "fmt"
     "os"
     "pi-eye/internal/forweb"
     "pi-eye/internal/tshark"
@@ -29,6 +30,7 @@ func pkts2convos(pstream <- chan tshark.Packet, cstream chan <- map[string]Conve
                         out[key] = value
                     }
                     ct = len(convos)
+                    fmt.Println("Exporting conversations", ct)
                     cstream <- out
                 }
             }
